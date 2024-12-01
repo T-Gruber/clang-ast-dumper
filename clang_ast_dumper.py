@@ -141,7 +141,7 @@ class ClangASTDumper:
 
         selected_code = ""
         if cursor_name == self.tu_cursor_name:
-            selected_code = self.get_cursor_code(self.translation_unit.cursor)
+            selected_code = "\n\n" + self.get_cursor_code(self.translation_unit.cursor)
 
         else:
             cursor_info = self.global_nodes[cursor_name]

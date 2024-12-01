@@ -33,3 +33,9 @@ python clang_ast_dumper.py <C-file>
    - The AST tree is expandable and collapsible. Click on nodes to view child nodes.
 3. View Code:
    - The code view updates automatically when a symbol is selected, displaying its declaration and/or definition.
+
+### Examples:
+1. Clang AST and source code of an entire translation unit:
+![Alt text](demo/demo_translation_unit.png)
+2. Clang AST and source code of the main function:
+![Alt text](demo/demo_main_function.png)
