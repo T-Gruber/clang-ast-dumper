@@ -1,5 +1,4 @@
 import clang.cindex
-import sys
 import os
 import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
@@ -45,7 +44,11 @@ class ClangASTDumper:
         messagebox.showinfo("Success", "Loaded source code and AST")
 
     def get_source_code(self) -> list:
-        """Extracts the source code of the translation unit."""
+        """Extracts the source code of the translation unit.
+
+        ### Output:
+            - (`list`). Source code lines of the current input file.
+        """
         try:
             with open(self.filename, "r") as f:
                 source_lines = f.readlines()
@@ -58,7 +61,12 @@ class ClangASTDumper:
             return []
 
     def get_global_nodes(self) -> dict:
-        """Extracts global nodes from the translation unit."""
+        """Extracts global nodes from the translation unit.
+
+        ### Output:
+            - (`dict`). Definition and/or declaration cursor for
+            each global symbol found.
+        """
         global_nodes = {}
         for cursor in self.translation_unit.cursor.get_children():
             cursor_name = cursor.spelling
@@ -120,7 +128,9 @@ class ClangASTDumper:
         self.root.mainloop()
 
     def search_symbol(self) -> None:
-        """Searches for a symbol and updates the AST and source code display."""
+        """Searches for a symbol and updates the AST and source code
+        display.
+        """
         symbol_name = self.search_var.get().strip()
         # Update with given symbol node
         if symbol_name in self.global_nodes:
@@ -140,7 +150,11 @@ class ClangASTDumper:
             self.update_ast_view(self.tu_cursor_name)
 
     def update_ast_view(self, cursor_name: str) -> None:
-        """Displays the AST for the given cursor."""
+        """Displays the AST for the given cursor.
+
+        ### Input:
+            - cursor_name (`str`). Name of the cursor to a global symbol.
+        """
         self.ast_tree.delete(
             *self.ast_tree.get_children()
         )  # Clear previous tree
@@ -156,7 +170,13 @@ class ClangASTDumper:
     def populate_ast_tree(
         self, cursor: clang.cindex.Cursor, parent_id: str
     ) -> None:
-        """Recursively populates the AST tree."""
+        """Populates the AST tree of a given cursor.
+
+        ### Input:
+            - cursor (`clang.cindex.Cursor`). Parent cursor used as
+            root of the AST tree.
+            - parent_id (`str`). ID of the parent cursor.
+        """
         stack = [(cursor, parent_id)]
         while stack:
             current_cursor, current_parent = stack.pop()
@@ -172,6 +192,14 @@ class ClangASTDumper:
                 stack.append((child, node_id))
 
     def get_cursor_code(self, cursor: clang.cindex.Cursor) -> str:
+        """Get the source code for a cursor in the AST.
+
+        ### Input:
+            - cursor (`clang.cindex.Cursor`). Given cursor.
+
+        ### Output:
+            - (`str`). Source code of the given cursor.
+        """
         extent = cursor.extent
         start_line, start_col = extent.start.line - 1, extent.start.column - 1
         end_line, end_col = extent.end.line - 1, extent.end.column - 1
@@ -182,7 +210,11 @@ class ClangASTDumper:
         return selected_code
 
     def update_code_view(self, cursor_name: str) -> None:
-        """Displays the source code of the selected symbol."""
+        """Displays the source code of the selected symbol.
+
+        ### Input:
+            - cursor_name (`str`). Name of the cursor to a global symbol.
+        """
 
         # Set text modifiable
         self.code_text.config(state=tk.NORMAL)
