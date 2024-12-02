@@ -21,17 +21,20 @@ pip install libclang
 ### Usage 
 Run the script:
 ```bash
-python clang_ast_dumper.py <C-file>
+python clang_ast_dumper.py
 ```
 
 ### Explore the Clang AST
-1. Search for a Symbol:
+1. Load a file:
+   - Insert the full path to a given input C file.
+   - The source code will be read and parsed into an AST.
+2. Search for a Symbol:
    - Type a symbol name in the search bar and press the Search button or hit Enter.
    - The AST and corresponding source code will update to reflect the selected symbol.
    - Leave the search bar empty and press Search to reset to the entire AST of the translation unit.
-2. AST Interaction:
+3. AST Interaction:
    - The AST tree is expandable and collapsible. Click on nodes to view child nodes.
-3. View Code:
+4. View Code:
    - The code view updates automatically when a symbol is selected, displaying its declaration and/or definition.
 
 ### Examples:
