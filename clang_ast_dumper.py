@@ -142,12 +142,11 @@ class ClangASTDumper:
             self.update_code_view(self.tu_cursor_name)
         # Given node not found
         else:
+            self.code_text.config(state=tk.NORMAL)
             self.code_text.delete(1.0, tk.END)
-            self.code_text.insert(
-                tk.END, f"No symbol found for '{symbol_name}'"
-            )
-            self.ast_tree.delete()
-            self.update_ast_view(self.tu_cursor_name)
+            self.code_text.config(state=tk.DISABLED)
+            self.ast_tree.delete(*self.ast_tree.get_children())
+            messagebox.showerror("Error", "Symbol not found in AST.")
 
     def update_ast_view(self, cursor_name: str) -> None:
         """Displays the AST for the given cursor.
@@ -216,7 +215,6 @@ class ClangASTDumper:
             - cursor_name (`str`). Name of the cursor to a global symbol.
         """
 
-        # Set text modifiable
         self.code_text.config(state=tk.NORMAL)
 
         selected_code = ""
@@ -241,7 +239,6 @@ class ClangASTDumper:
 
         self.code_text.delete(1.0, tk.END)
         self.code_text.insert(tk.END, selected_code)
-        # Set text to read-only
         self.code_text.config(state=tk.DISABLED)
 
 
