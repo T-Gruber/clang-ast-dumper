@@ -1,16 +1,17 @@
 import clang.cindex
 import sys
+import os
 import tkinter as tk
-from tkinter import ttk, scrolledtext
+from tkinter import ttk, scrolledtext, messagebox
 
 
 class ClangASTDumper:
-    def __init__(self, filename: str):
-        self.filename = filename
-        self.index = clang.cindex.Index.create()
-        self.translation_unit = self.index.parse(filename)
-        self.global_nodes = self.get_global_nodes()
-        self.source_code = self.get_source_code()
+    def __init__(self):
+        self.filename = ""
+        self.index = None
+        self.translation_unit = None
+        self.global_nodes = []
+        self.source_code = []
         self.tu_cursor_name = "translation_unit"
 
         self.root = tk.Tk()
@@ -20,15 +21,41 @@ class ClangASTDumper:
         self.default_width = 800
         self.root.geometry(f"{self.default_width}x{self.default_height}")
         self.search_var = tk.StringVar()
+        self.file_var = tk.StringVar()
         self.setup_ui()
         self.root.mainloop()
 
+    def load_file(self) -> None:
+        """Load the source code and parse the AST of the given file."""
+        self.filename = self.file_var.get().strip()
+        if not os.path.exists(self.filename) or not os.path.isfile(
+            self.filename
+        ):
+            messagebox.showerror("Error", f"File '{self.filename}' not found.")
+            return
+
+        self.index = clang.cindex.Index.create()
+        try:
+            self.translation_unit = self.index.parse(self.filename)
+        except clang.cindex.TranslationUnitLoadError as e:
+            messagebox.showerror("Error", f"Failed to parse the AST:\n{e}")
+            return
+        self.global_nodes = self.get_global_nodes()
+        self.source_code = self.get_source_code()
+        messagebox.showinfo("Success", "Loaded source code and AST")
+
     def get_source_code(self) -> list:
         """Extracts the source code of the translation unit."""
-        source_lines = []
-        with open(self.filename, "r") as f:
-            source_lines = f.readlines()
-        return source_lines
+        try:
+            with open(self.filename, "r") as f:
+                source_lines = f.readlines()
+                return source_lines
+        except FileNotFoundError:
+            messagebox.showerror("Error", f"File '{self.filename}' not found.")
+            return []
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load file:\n{e}")
+            return []
 
     def get_global_nodes(self) -> dict:
         """Extracts global nodes from the translation unit."""
@@ -45,15 +72,27 @@ class ClangASTDumper:
 
     def setup_ui(self) -> None:
         """Initializes the UI layout."""
-        # Search Section
+        # File select Section
+        file_frame = tk.Frame(self.root)
+        file_frame.pack(fill=tk.X)
+        tk.Label(file_frame, text="Input file:").pack(side=tk.LEFT)
+        file_entry = tk.Entry(file_frame, textvariable=self.file_var)
+        file_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        file_entry.configure(background="grey80")
+        file_button = tk.Button(
+            file_frame, text="Load", command=self.load_file
+        )
+        file_button.pack(side=tk.LEFT)
+
+        # Symbol search Section
         search_frame = tk.Frame(self.root)
         search_frame.pack(fill=tk.X)
         tk.Label(search_frame, text="Search:").pack(side=tk.LEFT)
         search_entry = tk.Entry(search_frame, textvariable=self.search_var)
         search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         search_entry.configure(background="grey80")
-        start_search = lambda event=None: self.search_symbol()
-        search_entry.bind("<Return>", start_search)
+        # start_search = lambda event=None: self.search_symbol()
+        search_entry.bind("<Return>", lambda event=None: self.search_symbol())
         search_button = tk.Button(
             search_frame, text="Search", command=self.search_symbol
         )
@@ -94,13 +133,17 @@ class ClangASTDumper:
         # Given node not found
         else:
             self.code_text.delete(1.0, tk.END)
-            self.code_text.insert(tk.END, f"No symbol found for '{symbol_name}'")
+            self.code_text.insert(
+                tk.END, f"No symbol found for '{symbol_name}'"
+            )
             self.ast_tree.delete()
             self.update_ast_view(self.tu_cursor_name)
 
     def update_ast_view(self, cursor_name: str) -> None:
         """Displays the AST for the given cursor."""
-        self.ast_tree.delete(*self.ast_tree.get_children())  # Clear previous tree
+        self.ast_tree.delete(
+            *self.ast_tree.get_children()
+        )  # Clear previous tree
         if cursor_name == self.tu_cursor_name:
             self.populate_ast_tree(self.translation_unit.cursor, "")
         else:
@@ -110,18 +153,23 @@ class ClangASTDumper:
             if "def" in cursor_info.keys():
                 self.populate_ast_tree(cursor_info["def"], "")
 
-    def populate_ast_tree(self, cursor: clang.cindex.Cursor, parent_id: str) -> None:
+    def populate_ast_tree(
+        self, cursor: clang.cindex.Cursor, parent_id: str
+    ) -> None:
         """Recursively populates the AST tree."""
-        cursor_name = cursor.displayname
-        node_id = self.ast_tree.insert(
-            parent_id,
-            "end",
-            text=f"{cursor.kind}{': ' if cursor_name else ''}{cursor_name}",
-        )
-
-        self.ast_tree.item(node_id, open=True)
-        for child in cursor.get_children():
-            self.populate_ast_tree(child, node_id)
+        stack = [(cursor, parent_id)]
+        while stack:
+            current_cursor, current_parent = stack.pop()
+            cursor_name = current_cursor.displayname
+            node_id = self.ast_tree.insert(
+                current_parent,
+                "end",
+                text=f"{current_cursor.kind}{': ' if cursor_name else ''}"
+                f"{cursor_name}",
+            )
+            self.ast_tree.item(node_id, open=True)
+            for child in current_cursor.get_children():
+                stack.append((child, node_id))
 
     def get_cursor_code(self, cursor: clang.cindex.Cursor) -> str:
         extent = cursor.extent
@@ -141,19 +189,22 @@ class ClangASTDumper:
 
         selected_code = ""
         if cursor_name == self.tu_cursor_name:
-            selected_code = "\n\n" + self.get_cursor_code(self.translation_unit.cursor)
+            selected_code = "\n\n" + self.get_cursor_code(
+                self.translation_unit.cursor
+            )
 
         else:
             cursor_info = self.global_nodes[cursor_name]
             if "decl" in cursor_info.keys():
                 decl_cursor = cursor_info["decl"]
-                selected_code += "\n\n// Declaration\n\n" + self.get_cursor_code(
-                    decl_cursor
+                selected_code += (
+                    "\n\n// Declaration\n\n"
+                    + self.get_cursor_code(decl_cursor)
                 )
             if "def" in cursor_info.keys():
                 decl_cursor = cursor_info["def"]
-                selected_code += "\n\n// Definition\n\n" + self.get_cursor_code(
-                    decl_cursor
+                selected_code += (
+                    "\n\n// Definition\n\n" + self.get_cursor_code(decl_cursor)
                 )
 
         self.code_text.delete(1.0, tk.END)
@@ -163,9 +214,4 @@ class ClangASTDumper:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python clang_ast_dumper.py <C-file>")
-        sys.exit(1)
-
-    source_filename = sys.argv[1]
-    ClangASTDumper(source_filename)
+    ClangASTDumper()
